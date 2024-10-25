@@ -1,0 +1,20 @@
+{
+  "characters": [
+    "test",
+    "test2",
+    "test3",
+    "test4",
+    "wonder"
+  ],
+  "settings": [
+    "test",
+    "test2",
+    "test4"
+  ],
+  "actions": [
+    "test",
+    "test2",
+    "test4",
+    "test5"
+  ]
+}

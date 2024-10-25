@@ -485,28 +485,19 @@ class MainWindow(QMainWindow):
         self.image_list.visibilityChanged.connect(
             lambda: self.toggle_image_list_action.setChecked(
                 self.image_list.isVisible()))
-        self.image_list_model.dataChanged.connect(
-            self.json_tags_editor.reload_image_tags_if_changed)
 
     @Slot()
     def update_image_tags(self):
-        """Update both regular tags and JSON tags."""
         image_index = self.image_tags_editor.image_index
-        if image_index is None:
-            return
-
-        # Update regular tags
+        self.json_tags_editor.image_index = image_index
         image: Image = self.image_list_model.data(image_index,
                                                   Qt.ItemDataRole.UserRole)
         old_tags = image.tags
         new_tags = self.image_tag_list_model.stringList()
-
         if old_tags == new_tags:
             return
-
         old_tags_count = len(old_tags)
         new_tags_count = len(new_tags)
-
         if new_tags_count > old_tags_count:
             self.image_list_model.add_to_undo_stack(
                 action_name='Add Tag', should_ask_for_confirmation=False)
@@ -525,67 +516,24 @@ class MainWindow(QMainWindow):
         else:
             self.image_list_model.add_to_undo_stack(
                 action_name='Delete Tags', should_ask_for_confirmation=False)
-
         self.image_list_model.update_image_tags(image_index, new_tags)
-
-    # def update_image_tags(self):
-    #     image_index = self.image_tags_editor.image_index
-    #     self.json_tags_editor.image_index = image_index
-    #     image: Image = self.image_list_model.data(image_index,
-    #                                               Qt.ItemDataRole.UserRole)
-    #     old_tags = image.tags
-    #     new_tags = self.image_tag_list_model.stringList()
-    #     if old_tags == new_tags:
-    #         return
-    #     old_tags_count = len(old_tags)
-    #     new_tags_count = len(new_tags)
-    #     if new_tags_count > old_tags_count:
-    #         self.image_list_model.add_to_undo_stack(
-    #             action_name='Add Tag', should_ask_for_confirmation=False)
-    #     elif new_tags_count == old_tags_count:
-    #         if set(new_tags) == set(old_tags):
-    #             self.image_list_model.add_to_undo_stack(
-    #                 action_name='Reorder Tags',
-    #                 should_ask_for_confirmation=False)
-    #         else:
-    #             self.image_list_model.add_to_undo_stack(
-    #                 action_name='Rename Tag',
-    #                 should_ask_for_confirmation=False)
-    #     elif old_tags_count - new_tags_count == 1:
-    #         self.image_list_model.add_to_undo_stack(
-    #             action_name='Delete Tag', should_ask_for_confirmation=False)
-    #     else:
-    #         self.image_list_model.add_to_undo_stack(
-    #             action_name='Delete Tags', should_ask_for_confirmation=False)
-    #     self.image_list_model.update_image_tags(image_index, new_tags)
-    #     #self.json_list_model.update_image_tags(image_index, new_tags)
+        #self.json_list_model.update_image_tags(image_index, new_tags)
 
     def connect_image_tags_editor_signals(self):
         # `rowsInserted` does not have to be connected because `dataChanged`
         # is emitted when a tag is added.
-        #self.image_tags_editor.tag_input_box.tags_addition_requested.connect(
-        #    self.image_list_model.add_tags)
-        #self.json_tags_editor.tag_input_box.tags_addition_requested.connect(
-        #    self.image_list_model.add_tags)
-
-        #New
         self.image_tag_list_model.modelReset.connect(self.update_image_tags)
         self.image_tag_list_model.dataChanged.connect(self.update_image_tags)
         self.image_tag_list_model.rowsMoved.connect(self.update_image_tags)
-        #New
-
-        # Regular tag editor visibility
         self.image_tags_editor.visibilityChanged.connect(
             lambda: self.toggle_image_tags_editor_action.setChecked(
                 self.image_tags_editor.isVisible()))
-
-        # JSON tag editor visibility
         self.json_tags_editor.visibilityChanged.connect(
             lambda: self.toggle_image_tags_editor_action.setChecked(
-                self.json_tags_editor.isVisible()))
-
-        # Connect tag addition signals
+                self.image_tags_editor.isVisible()))
         self.image_tags_editor.tag_input_box.tags_addition_requested.connect(
+            self.image_list_model.add_tags)
+        self.json_tags_editor.tag_input_box.tags_addition_requested.connect(
             self.image_list_model.add_tags)
 
 

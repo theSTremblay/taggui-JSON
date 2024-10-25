@@ -102,117 +102,62 @@ class ImageListModel(QAbstractListModel):
             return QSize(self.image_list_image_width,
                          int(self.image_list_image_width * height / width))
 
-    # def load_directory(self, directory_path: Path):
-    #     self.images.clear()
-    #     self.undo_stack.clear()
-    #     self.redo_stack.clear()
-    #     self.update_undo_and_redo_actions_requested.emit()
-    #     file_paths = get_file_paths(directory_path)
-    #     settings = get_settings()
-    #     image_suffixes_string = settings.value(
-    #         'image_list_file_formats',
-    #         defaultValue=DEFAULT_SETTINGS['image_list_file_formats'], type=str)
-    #     image_suffixes = []
-    #     for suffix in image_suffixes_string.split(','):
-    #         suffix = suffix.strip().lower()
-    #         if not suffix.startswith('.'):
-    #             suffix = '.' + suffix
-    #         image_suffixes.append(suffix)
-    #     image_paths = [path for path in file_paths
-    #                    if path.suffix.lower() in image_suffixes]
-    #     text_file_paths = [path for path in file_paths
-    #                        if path.suffix == '.txt']
-    #     for image_path in image_paths:
-    #         try:
-    #             dimensions = imagesize.get(image_path)
-    #             # Check the Exif orientation tag and rotate the dimensions if
-    #             # necessary.
-    #             with open(image_path, 'rb') as image_file:
-    #                 try:
-    #                     exif_tags = exifread.process_file(
-    #                         image_file, details=False,
-    #                         stop_tag='Image Orientation')
-    #                     if 'Image Orientation' in exif_tags:
-    #                         orientations = (exif_tags['Image Orientation']
-    #                                         .values)
-    #                         if any(value in orientations
-    #                                for value in (5, 6, 7, 8)):
-    #                             dimensions = (dimensions[1], dimensions[0])
-    #                 except (KeyError, NoParser) as exception:
-    #                     print(f'Failed to get Exif tags for {image_path}: '
-    #                           f'{exception}', file=sys.stderr)
-    #         except (ValueError, OSError) as exception:
-    #             print(f'Failed to get dimensions for {image_path}: '
-    #                   f'{exception}', file=sys.stderr)
-    #             dimensions = None
-    #         tags = []
-    #         text_file_path = image_path.with_suffix('.txt')
-    #         if text_file_path in text_file_paths:
-    #             # `errors='replace'` inserts a replacement marker such as '?'
-    #             # when there is malformed data.
-    #             caption = text_file_path.read_text(encoding='utf-8',
-    #                                                errors='replace')
-    #             if caption:
-    #                 tags = caption.split(self.tag_separator)
-    #                 tags = [tag.strip() for tag in tags]
-    #                 tags = [tag for tag in tags if tag]
-    #         image = Image(image_path, dimensions, tags)
-    #         self.images.append(image)
-    #     self.images.sort(key=lambda image_: image_.path)
-    #     self.modelReset.emit()
     def load_directory(self, directory_path: Path):
-        """Update to handle both .txt and .json files"""
         self.images.clear()
         self.undo_stack.clear()
         self.redo_stack.clear()
         self.update_undo_and_redo_actions_requested.emit()
-
         file_paths = get_file_paths(directory_path)
         settings = get_settings()
         image_suffixes_string = settings.value(
             'image_list_file_formats',
             defaultValue=DEFAULT_SETTINGS['image_list_file_formats'], type=str)
-
         image_suffixes = []
         for suffix in image_suffixes_string.split(','):
             suffix = suffix.strip().lower()
             if not suffix.startswith('.'):
                 suffix = '.' + suffix
             image_suffixes.append(suffix)
-
         image_paths = [path for path in file_paths
                        if path.suffix.lower() in image_suffixes]
         text_file_paths = [path for path in file_paths
                            if path.suffix == '.txt']
-        json_file_paths = [path for path in file_paths
-                           if path.suffix == '.json']
-
         for image_path in image_paths:
             try:
                 dimensions = imagesize.get(image_path)
-                # ... (existing dimension handling code)
-
+                # Check the Exif orientation tag and rotate the dimensions if
+                # necessary.
+                with open(image_path, 'rb') as image_file:
+                    try:
+                        exif_tags = exifread.process_file(
+                            image_file, details=False,
+                            stop_tag='Image Orientation')
+                        if 'Image Orientation' in exif_tags:
+                            orientations = (exif_tags['Image Orientation']
+                                            .values)
+                            if any(value in orientations
+                                   for value in (5, 6, 7, 8)):
+                                dimensions = (dimensions[1], dimensions[0])
+                    except (KeyError, NoParser) as exception:
+                        print(f'Failed to get Exif tags for {image_path}: '
+                              f'{exception}', file=sys.stderr)
             except (ValueError, OSError) as exception:
                 print(f'Failed to get dimensions for {image_path}: '
                       f'{exception}', file=sys.stderr)
                 dimensions = None
-
             tags = []
-            # Check for traditional .txt tags
             text_file_path = image_path.with_suffix('.txt')
             if text_file_path in text_file_paths:
+                # `errors='replace'` inserts a replacement marker such as '?'
+                # when there is malformed data.
                 caption = text_file_path.read_text(encoding='utf-8',
                                                    errors='replace')
                 if caption:
                     tags = caption.split(self.tag_separator)
                     tags = [tag.strip() for tag in tags]
                     tags = [tag for tag in tags if tag]
-
-            # We don't load JSON tags here as they're handled separately by JsonTagsEditor
-
             image = Image(image_path, dimensions, tags)
             self.images.append(image)
-
         self.images.sort(key=lambda image_: image_.path)
         self.modelReset.emit()
 
@@ -225,31 +170,11 @@ class ImageListModel(QAbstractListModel):
         self.redo_stack.clear()
         self.update_undo_and_redo_actions_requested.emit()
 
-    # def write_image_tags_to_disk(self, image: Image):
-    #     try:
-    #         image.path.with_suffix('.txt').write_text(
-    #             self.tag_separator.join(image.tags), encoding='utf-8',
-    #             errors='replace')
-    #     except OSError:
-    #         error_message_box = QMessageBox()
-    #         error_message_box.setWindowTitle('Error')
-    #         error_message_box.setIcon(QMessageBox.Icon.Critical)
-    #         error_message_box.setText(f'Failed to save tags for {image.path}.')
-    #         error_message_box.exec()
     def write_image_tags_to_disk(self, image: Image):
-        """Updated to handle potential file conflicts"""
         try:
-            # Write traditional .txt tags
-            txt_path = image.path.with_suffix('.txt')
-            txt_path.write_text(
-                self.tag_separator.join(image.tags),
-                encoding='utf-8',
-                errors='replace'
-            )
-
-            # Note: We don't delete any existing .json files here
-            # as they're managed separately by JsonTagsEditor
-
+            image.path.with_suffix('.txt').write_text(
+                self.tag_separator.join(image.tags), encoding='utf-8',
+                errors='replace')
         except OSError:
             error_message_box = QMessageBox()
             error_message_box.setWindowTitle('Error')
@@ -556,18 +481,6 @@ class ImageListModel(QAbstractListModel):
         min_image_index = min(image_indices, key=lambda index: index.row())
         max_image_index = max(image_indices, key=lambda index: index.row())
         self.dataChanged.emit(min_image_index, max_image_index)
-
-    def rename_file_extension(self, old_path: Path, new_extension: str) -> Path:
-        """Helper method to rename file extension while preserving the path"""
-        return old_path.parent / (old_path.stem + new_extension)
-
-    def handle_file_deletion(self, file_path: Path):
-        """Helper method to safely delete a file if it exists"""
-        try:
-            if file_path.exists():
-                file_path.unlink()
-        except OSError as e:
-            print(f"Error deleting file {file_path}: {e}", file=sys.stderr)
 
     @Slot(list, str)
     def rename_tags(self, old_tags: List[str], new_tag: str,
