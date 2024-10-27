@@ -1,20 +1,21 @@
 {
   "characters": [
+    "belt",
+    "girl",
+    "hair pulled back",
+    "long sleeves",
+    "nexk ribbon",
+    "overalls",
+    "school uniform",
+    "skirt",
     "test",
-    "test2",
-    "test3",
-    "test4",
-    "wonder"
+    "trucker hat"
   ],
   "settings": [
-    "test",
-    "test2",
-    "test4"
+    "test"
   ],
   "actions": [
     "test",
-    "test2",
-    "test4",
-    "test5"
+    "test3"
   ]
 }

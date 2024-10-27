@@ -1,0 +1,1 @@
+character:ponytail, character:trucker hat, action:comfortable, action:sitting, action:staring ahead

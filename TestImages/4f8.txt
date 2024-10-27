@@ -1,0 +1,1 @@
+character:circle, character:mouse, setting:inside circle
