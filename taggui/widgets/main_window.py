@@ -53,6 +53,9 @@ class MainWindow(QMainWindow):
         self.tag_counter_model = TagCounterModel()
         self.image_tag_list_model = ImageTagListModel()
 
+        #self.text_tag_list_model = ImageTagListModel()
+        self.json_tag_list_model = ImageTagListModel()
+
         self.setWindowIcon(QIcon(QPixmap(get_resource_path(ICON_PATH))))
         # Not setting this results in some ugly colors.
         self.setPalette(self.app.style().standardPalette())
@@ -71,8 +74,10 @@ class MainWindow(QMainWindow):
             tag_separator)
         self.json_tags_editor = JsonTagsEditor(
             self.proxy_image_list_model, self.tag_counter_model,
-            self.image_tag_list_model, self.image_list, tokenizer,
+            self.json_tag_list_model, self.image_list, tokenizer,
             tag_separator)
+
+
 
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea,
                            self.json_tags_editor)

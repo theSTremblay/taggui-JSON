@@ -378,17 +378,15 @@ class JsonTagsEditor(QDockWidget):
             "actions": []
         }
 
-
-
     def update_display(self):
-        """Update the display with current JSON tags."""
-        # Convert JSON tags to display format
+        """Update display with only JSON tags"""
         display_tags = []
         for category, tags in self.current_json_tags.items():
             category_singular = category[:-1]  # Remove 's' from plural form
             for tag in tags:
                 display_tags.append(f"{category_singular}:{tag}")
 
+        # Update the model with only JSON tags
         self.image_tag_list_model.setStringList(display_tags)
         self.count_tokens()
 
@@ -406,11 +404,10 @@ class JsonTagsEditor(QDockWidget):
 
     @Slot()
     def load_image_tags(self, proxy_image_index: QModelIndex):
-        """Load JSON tags for the selected image."""
+        """Load only JSON tags"""
         if not proxy_image_index.isValid():
             return
 
-        # Update the current image index
         self.image_index = self.proxy_image_list_model.mapToSource(proxy_image_index)
 
         # Get image from source model
@@ -418,14 +415,20 @@ class JsonTagsEditor(QDockWidget):
         image: Image = source_model.data(self.image_index, Qt.ItemDataRole.UserRole)
 
         if image is None:
-            print(f"Warning: Could not get image data for index {proxy_image_index.row()}")
             return
 
-        # Read JSON tags from disk for this image
-        self.current_json_tags = self.read_json_tags_from_disk(image.path)
-        print(f"Loaded tags for {image.path}")
+        # Only load tags from .json file
+        try:
+            json_path = image.path.with_suffix('.json')
+            if json_path.exists():
+                with json_path.open('r', encoding='utf-8') as f:
+                    self.current_json_tags = json.load(f)
+            else:
+                self.current_json_tags = self.init_current_json_tags()
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"Error reading JSON tags: {str(e)}")
+            self.current_json_tags = self.init_current_json_tags()
 
-        # Update the display with the tags from this image
         self.update_display()
 
         if self.image_tags_list.hasFocus():

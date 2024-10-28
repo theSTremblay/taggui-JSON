@@ -258,20 +258,34 @@ class ImageTagsEditor(QDockWidget):
 
     @Slot()
     def load_image_tags(self, proxy_image_index: QModelIndex):
-        self.image_index = self.proxy_image_list_model.mapToSource(
-            proxy_image_index)
-        image: Image = self.proxy_image_list_model.data(
-            proxy_image_index, Qt.ItemDataRole.UserRole)
-        # If the string list already contains the image's tags, do not reload
-        # them. This is the case when the tags are edited directly through the
-        # image tags editor. Removing this check breaks the functionality of
-        # reordering multiple tags at the same time because it gets interrupted
-        # after one tag is moved.
-        current_string_list = self.image_tag_list_model.stringList()
-        if current_string_list == image.tags:
+        """Load only text tags from .txt files"""
+        self.image_index = self.proxy_image_list_model.mapToSource(proxy_image_index)
+
+        # Get image from source model
+        source_model = self.proxy_image_list_model.sourceModel()
+        image: Image = source_model.data(self.image_index, Qt.ItemDataRole.UserRole)
+
+        if image is None:
             return
-        self.image_tag_list_model.setStringList(image.tags)
+
+        # Only load tags from .txt file
+        try:
+            txt_path = image.path.with_suffix('.txt')
+            if txt_path.exists():
+                text = txt_path.read_text(encoding='utf-8', errors='replace')
+                if text:
+                    tags = [tag.strip() for tag in text.split(self.tag_separator) if tag.strip()]
+                    self.image_tag_list_model.setStringList(tags)
+                else:
+                    self.image_tag_list_model.setStringList([])
+            else:
+                self.image_tag_list_model.setStringList([])
+        except OSError as e:
+            print(f"Error reading text tags: {str(e)}")
+            self.image_tag_list_model.setStringList([])
+
         self.count_tokens()
+
         if self.image_tags_list.hasFocus():
             self.select_first_tag()
 

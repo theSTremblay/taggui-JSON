@@ -69,12 +69,18 @@ class ImageListModel(QAbstractListModel):
         image = self.images[index.row()]
         if role == Qt.ItemDataRole.UserRole:
             return image
+        #image = self.images[index.row()]
         if role == Qt.ItemDataRole.DisplayRole:
-            # The text shown next to the thumbnail in the image list.
+            # Only show text tags in the image list view
             text = image.path.name
-            if image.tags:
-                caption = self.tag_separator.join(image.tags)
-                text += f'\n{caption}'
+            try:
+                txt_path = image.path.with_suffix('.txt')
+                if txt_path.exists():
+                    caption = txt_path.read_text(encoding='utf-8', errors='replace')
+                    if caption:
+                        text += f'\n{caption}'
+            except OSError:
+                pass
             return text
         if role == Qt.ItemDataRole.DecorationRole:
             # The thumbnail. If the image already has a thumbnail stored, use
@@ -516,12 +522,23 @@ class ImageListModel(QAbstractListModel):
         return removed_tag_count
 
     def update_image_tags(self, image_index: QModelIndex, tags: list[str]):
+        """Update only text tags"""
         image: Image = self.data(image_index, Qt.ItemDataRole.UserRole)
         if image.tags == tags:
             return
-        image.tags = tags
-        self.dataChanged.emit(image_index, image_index)
-        self.write_image_tags_to_disk(image)
+
+        # Only update .txt file tags
+        try:
+            txt_path = image.path.with_suffix('.txt')
+            txt_path.write_text(
+                self.tag_separator.join(tags),
+                encoding='utf-8',
+                errors='replace'
+            )
+            image.tags = tags
+            self.dataChanged.emit(image_index, image_index)
+        except OSError as e:
+            print(f"Error saving text tags: {str(e)}")
 
     @Slot(list, list)
     def add_tags(self, tags: list[str], image_indices: list[QModelIndex]):
