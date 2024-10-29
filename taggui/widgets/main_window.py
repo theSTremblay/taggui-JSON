@@ -377,21 +377,28 @@ class MainWindow(QMainWindow):
             self.remove_empty_tags)
         edit_menu.addAction(remove_empty_tags_action)
 
+        # Add new action for JSON Tags editor
+        self.toggle_json_tags_editor_action = QAction('JSON Tags', parent=self)
+
         view_menu = menu_bar.addMenu('View')
         self.toggle_image_list_action.setCheckable(True)
         self.toggle_image_tags_editor_action.setCheckable(True)
+        self.toggle_json_tags_editor_action.setCheckable(True)
         self.toggle_all_tags_editor_action.setCheckable(True)
         self.toggle_auto_captioner_action.setCheckable(True)
         self.toggle_image_list_action.triggered.connect(
             lambda is_checked: self.image_list.setVisible(is_checked))
         self.toggle_image_tags_editor_action.triggered.connect(
             lambda is_checked: self.image_tags_editor.setVisible(is_checked))
+        self.toggle_json_tags_editor_action.triggered.connect(  # Connect the new action
+            lambda is_checked: self.json_tags_editor.setVisible(is_checked))
         self.toggle_all_tags_editor_action.triggered.connect(
             lambda is_checked: self.all_tags_editor.setVisible(is_checked))
         self.toggle_auto_captioner_action.triggered.connect(
             lambda is_checked: self.auto_captioner.setVisible(is_checked))
         view_menu.addAction(self.toggle_image_list_action)
         view_menu.addAction(self.toggle_image_tags_editor_action)
+        view_menu.addAction(self.toggle_json_tags_editor_action)
         view_menu.addAction(self.toggle_all_tags_editor_action)
         view_menu.addAction(self.toggle_auto_captioner_action)
 
@@ -566,12 +573,6 @@ class MainWindow(QMainWindow):
     #     #self.json_list_model.update_image_tags(image_index, new_tags)
 
     def connect_image_tags_editor_signals(self):
-        # `rowsInserted` does not have to be connected because `dataChanged`
-        # is emitted when a tag is added.
-        #self.image_tags_editor.tag_input_box.tags_addition_requested.connect(
-        #    self.image_list_model.add_tags)
-        #self.json_tags_editor.tag_input_box.tags_addition_requested.connect(
-        #    self.image_list_model.add_tags)
 
         #New
         self.image_tag_list_model.modelReset.connect(self.update_image_tags)
@@ -586,11 +587,13 @@ class MainWindow(QMainWindow):
 
         # JSON tag editor visibility
         self.json_tags_editor.visibilityChanged.connect(
-            lambda: self.toggle_image_tags_editor_action.setChecked(
+            lambda: self.toggle_json_tags_editor_action.setChecked(
                 self.json_tags_editor.isVisible()))
 
         # Connect tag addition signals
         self.image_tags_editor.tag_input_box.tags_addition_requested.connect(
+            self.image_list_model.add_tags)
+        self.json_tags_editor.tag_input_box.tags_addition_requested.connect(
             self.image_list_model.add_tags)
 
 

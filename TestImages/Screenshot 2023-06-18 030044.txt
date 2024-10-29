@@ -1,1 +1,0 @@
-character:belt, character:girl, character:hair pulled back, character:long sleeves, character:nexk ribbon, character:overalls, character:school uniform, character:skirt, character:test, character:trucker hat, setting:test, action:test, action:test3
