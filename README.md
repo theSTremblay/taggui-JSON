@@ -1,7 +1,7 @@
 # TagGUI-JSON
 
 - Original work on TagGUI can be found here: https://github.com/jhc13/taggui
-- This code is using v1.25.2 of this release
+- This code should be referencing v1.25.2 of this release
 
 ## Updates/Modifications
 - Use the TagGUI GUI to add Json tags to your images
@@ -27,7 +27,12 @@
 - Customize Json Key names for more descriptions than "Character", "Action", and "Setting"
 - Working on grabbing crops of subimages found in the original image for less noisy tags
 
+## Fork Information
+This is a fork of TagGUI that adds JSON tagging capabilities. For the original project, please visit [TagGUI](https://github.com/jhc13/taggui).
 
+---
+Original TagGUI Documentation Below
+---
 
 # TagGUI
 
