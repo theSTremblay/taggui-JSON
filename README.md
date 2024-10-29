@@ -6,7 +6,7 @@
 ## Updates/Modifications
 - Use the TagGUI GUI to add Json tags to your images
 - Json tags can be deleted with one-click
-- JSON's can be modified/removed at your convenience just like the original Image tags on Taggui
+- JSON's can be modified/removed at your convenience just like the original Image tags on TagGUI
 - My changes can mostly be found in the new json_tags_editor files and main_window to support the changes in json_tags_editor
 
 ## Examples
