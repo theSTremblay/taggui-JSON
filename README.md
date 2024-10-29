@@ -10,6 +10,7 @@
 - My changes can mostly be found in the new json_tags_editor files and main_window to support the changes in json_tags_editor
 
 ## Roadmap
+- Customize Json Key names for more descriptions than "Character", "Action", and "Setting"
 - Working on grabbing crops of subimages found in the original image for less noisy tags
 
 
