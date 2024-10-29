@@ -9,9 +9,24 @@
 - JSON's can be modified/removed at your convenience just like the original Image tags on Taggui
 - My changes can mostly be found in the new json_tags_editor files and main_window to support the changes in json_tags_editor
 
+## Examples
+
+#### Add Tag
+
+<img src='images/AddNewTagsJSON.gif' alt='TagGUI icon' width='512px'>
+
+#### Delete Tag
+
+<img src='images/DeleteTagsJSON.gif' alt='TagGUI icon' width='512px'>
+
+#### Remove JSON View/ Add JSON View
+
+<img src='images/ViewTagsJSON.gif' alt='TagGUI icon' width='512px'>
+
 ## Roadmap
 - Customize Json Key names for more descriptions than "Character", "Action", and "Setting"
 - Working on grabbing crops of subimages found in the original image for less noisy tags
+
 
 
 # TagGUI
