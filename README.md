@@ -1,3 +1,18 @@
+# TagGUI-JSON
+
+- Original work on TagGUI can be found here: https://github.com/jhc13/taggui
+- This code is using v1.25.2 of this release
+
+## Updates/Modifications
+- Use the TagGUI GUI to add Json tags to your images
+- Json tags can be deleted with one-click
+- JSON's can be modified/removed at your convenience just like the original Image tags on Taggui
+- My changes can mostly be found in the new json_tags_editor files and main_window to support the changes in json_tags_editor
+
+## Roadmap
+- Working on grabbing crops of subimages found in the original image for less noisy tags
+
+
 # TagGUI
 
 <img src='images/icon.png' alt='TagGUI icon' width='128'>
