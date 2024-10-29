@@ -1,4 +1,7 @@
 from pathlib import Path
+from typing import List  # Add this import
+import json  # Add this import
+
 
 from PySide6.QtCore import QKeyCombination, QModelIndex, QUrl, Qt, Slot
 from PySide6.QtGui import (QAction, QCloseEvent, QDesktopServices, QIcon,
@@ -575,26 +578,104 @@ class MainWindow(QMainWindow):
     def connect_image_tags_editor_signals(self):
 
         #New
-        self.image_tag_list_model.modelReset.connect(self.update_image_tags)
-        self.image_tag_list_model.dataChanged.connect(self.update_image_tags)
-        self.image_tag_list_model.rowsMoved.connect(self.update_image_tags)
-        #New
+        self.image_tag_list_model.modelReset.connect(self.update_text_tags)
+        self.image_tag_list_model.dataChanged.connect(self.update_text_tags)
+        self.image_tag_list_model.rowsMoved.connect(self.update_text_tags)
 
         # Regular tag editor visibility
         self.image_tags_editor.visibilityChanged.connect(
             lambda: self.toggle_image_tags_editor_action.setChecked(
                 self.image_tags_editor.isVisible()))
+        #New
+        #self.json_tag_list_model.modelReset.connect(self.update_json_tags)
+        #self.json_tag_list_model.dataChanged.connect(self.update_json_tags)
+        #self.json_tag_list_model.rowsMoved.connect(self.update_json_tags)
+
 
         # JSON tag editor visibility
         self.json_tags_editor.visibilityChanged.connect(
             lambda: self.toggle_json_tags_editor_action.setChecked(
                 self.json_tags_editor.isVisible()))
 
-        # Connect tag addition signals
+        # Connect tag addition signals to separate handlers
         self.image_tags_editor.tag_input_box.tags_addition_requested.connect(
-            self.image_list_model.add_tags)
+            self.add_text_tags)
         self.json_tags_editor.tag_input_box.tags_addition_requested.connect(
-            self.image_list_model.add_tags)
+            self.add_json_tags)
+
+    @Slot(list, list)
+    def add_text_tags(self, tags: List[str], image_indices: List[QModelIndex]):
+        """Handle adding text tags"""
+        self.image_list_model.add_tags(tags, image_indices)
+        self.image_tags_editor.select_last_tag()
+
+    def read_json_tags(self, image_path: Path) -> dict:
+        """Read JSON tags from file"""
+        empty_tags = {
+            "characters": [],
+            "settings": [],
+            "actions": []
+        }
+
+        try:
+            json_path = image_path.with_suffix('.json')
+            if json_path.exists():
+                with json_path.open('r', encoding='utf-8') as f:
+                    return json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"Error reading JSON tags: {str(e)}")
+
+        return empty_tags
+
+    @Slot(list, list)
+    def add_json_tags(self, tags: List[str], image_indices: List[QModelIndex]):
+        """Handle adding JSON tags"""
+        if not image_indices:
+            return
+
+        current_image_index = image_indices[0]  # Use the first selected image
+        image: Image = self.image_list_model.data(current_image_index, Qt.ItemDataRole.UserRole)
+
+        if not image:
+            return
+
+        try:
+            # Read existing JSON tags
+            json_tags = self.read_json_tags(image.path)
+
+            # Process new tags
+            for tag in tags:
+                if tag.startswith("character:"):
+                    value = tag.replace("character:", "").strip()
+                    if value not in json_tags["characters"]:
+                        json_tags["characters"].append(value)
+                elif tag.startswith("setting:"):
+                    value = tag.replace("setting:", "").strip()
+                    if value not in json_tags["settings"]:
+                        json_tags["settings"].append(value)
+                elif tag.startswith("action:"):
+                    value = tag.replace("action:", "").strip()
+                    if value not in json_tags["actions"]:
+                        json_tags["actions"].append(value)
+
+            # Save updated JSON tags
+            self.write_json_tags(image.path, json_tags)
+
+            # Update the JSON tags display
+            self.json_tags_editor.current_json_tags = json_tags
+            self.json_tags_editor.update_display()
+
+        except Exception as e:
+            print(f"Error processing JSON tags: {str(e)}")
+
+    def write_json_tags(self, image_path: Path, tags: dict):
+        """Write JSON tags to file"""
+        try:
+            json_path = image_path.with_suffix('.json')
+            with json_path.open('w', encoding='utf-8') as f:
+                json.dump(tags, f, indent=2, ensure_ascii=False)
+        except OSError as e:
+            print(f"Error writing JSON tags: {str(e)}")
 
 
     @Slot()
@@ -649,6 +730,99 @@ class MainWindow(QMainWindow):
         self.auto_captioner.visibilityChanged.connect(
             lambda: self.toggle_auto_captioner_action.setChecked(
                 self.auto_captioner.isVisible()))
+
+    @Slot()
+    def update_text_tags(self):
+        """Update only text-based tags"""
+        image_index = self.image_tags_editor.image_index
+        if image_index is None:
+            return
+
+        image: Image = self.image_list_model.data(image_index, Qt.ItemDataRole.UserRole)
+        if not image:
+            return
+
+        old_tags = image.tags
+        new_tags = self.image_tag_list_model.stringList()
+
+        if old_tags == new_tags:
+            return
+
+        # Update undo stack
+        old_tags_count = len(old_tags)
+        new_tags_count = len(new_tags)
+
+        if new_tags_count > old_tags_count:
+            self.image_list_model.add_to_undo_stack(
+                action_name='Add Text Tag', should_ask_for_confirmation=False)
+        elif new_tags_count == old_tags_count:
+            if set(new_tags) == set(old_tags):
+                self.image_list_model.add_to_undo_stack(
+                    action_name='Reorder Text Tags',
+                    should_ask_for_confirmation=False)
+            else:
+                self.image_list_model.add_to_undo_stack(
+                    action_name='Rename Text Tag',
+                    should_ask_for_confirmation=False)
+        elif old_tags_count - new_tags_count == 1:
+            self.image_list_model.add_to_undo_stack(
+                action_name='Delete Text Tag', should_ask_for_confirmation=False)
+        else:
+            self.image_list_model.add_to_undo_stack(
+                action_name='Delete Text Tags', should_ask_for_confirmation=False)
+
+        # Save to txt file
+        try:
+            txt_path = image.path.with_suffix('.txt')
+            txt_path.write_text('\n'.join(new_tags), encoding='utf-8')
+        except OSError as e:
+            print(f"Error saving text tags: {str(e)}")
+
+        self.image_list_model.update_image_tags(image_index, new_tags)
+
+    @Slot()
+    def update_json_tags(self):
+        """Update only JSON-based tags, saving to .json files"""
+        image_index = self.json_tags_editor.image_index
+        if image_index is None:
+            return
+
+        try:
+            # Get the current image
+            image: Image = self.image_list_model.data(image_index, Qt.ItemDataRole.UserRole)
+            if not image:
+                return
+
+            # Get the current JSON tags from the model
+            display_tags = self.json_tag_list_model.stringList()
+
+            # Convert display tags to JSON structure
+            json_tags = {
+                "characters": [],
+                "settings": [],
+                "actions": []
+            }
+
+            # Parse the tags back into JSON structure
+            for tag in display_tags:
+                try:
+                    category, value = tag.split(':', 1)
+                    if category == 'character':
+                        json_tags['characters'].append(value)
+                    elif category == 'setting':
+                        json_tags['settings'].append(value)
+                    elif category == 'action':
+                        json_tags['actions'].append(value)
+                except ValueError:
+                    continue
+
+            # Write JSON tags to disk
+            json_path = image.path.with_suffix('.json')
+            with json_path.open('w', encoding='utf-8') as f:
+                json.dump(json_tags, f, indent=2, ensure_ascii=False)
+
+        except Exception as e:
+            print(f"Error updating JSON tags: {str(e)}")
 
     def restore(self):
         # Restore the window geometry and state.

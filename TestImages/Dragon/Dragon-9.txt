@@ -1,1 +1,0 @@
-character:mount fuji, setting:mountain, setting:volcano, setting:clouds, action:tranquil

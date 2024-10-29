@@ -11,6 +11,8 @@ from PySide6.QtWidgets import (QStyledItemDelegate, QStyle, QLineEdit,
                               QStyleOptionViewItem)
 
 from transformers import PreTrainedTokenizerBase
+import json  # Add this import
+
 
 from models.proxy_image_list_model import ProxyImageListModel
 from models.tag_counter_model import TagCounterModel
@@ -262,7 +264,7 @@ class JsonTagsEditor(QDockWidget):
 
     @Slot(list, list)
     def handle_json_tags(self, tags: List[str], image_indices: List[QModelIndex]):
-        """Handle new tags being added."""
+        """Handle new JSON tags being added."""
         if not image_indices:
             return
 
@@ -285,7 +287,6 @@ class JsonTagsEditor(QDockWidget):
         # Get the currently selected image
         current_image_index = self.image_index
         if not current_image_index:
-            print("No image selected")
             return
 
         try:
@@ -293,11 +294,10 @@ class JsonTagsEditor(QDockWidget):
             source_model = self.proxy_image_list_model.sourceModel()
             current_image: Image = source_model.data(current_image_index, Qt.ItemDataRole.UserRole)
 
-            if current_image is None or not hasattr(current_image, 'path'):
-                print("Invalid image")
+            if not current_image or not hasattr(current_image, 'path'):
                 return
 
-            # Read existing tags for the current image
+            # Read existing JSON tags
             existing_tags = self.read_json_tags_from_disk(current_image.path)
 
             # Merge with new tags
@@ -313,17 +313,15 @@ class JsonTagsEditor(QDockWidget):
                 for key, value in merged_tags.items()
             }
 
-            # Write the merged tags back to disk for the current image
+            # Write the merged tags to disk
             self.write_json_tags_to_disk(current_image.path, merged_tags)
 
             # Update current tags and display
             self.current_json_tags = merged_tags
             self.update_display()
 
-            print(f"Saved tags to {current_image.path}")
-
         except Exception as e:
-            print(f"Error processing tags: {str(e)}")
+            print(f"Error processing JSON tags: {str(e)}")
             import traceback
             traceback.print_exc()
 
