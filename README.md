@@ -15,7 +15,7 @@
 
 <img src='images/AddNewTagsJSON.gif' alt='TagGUI icon' width='512px'>
 
-#### Delete Tag
+#### Single-Click Delete Tag
 
 <img src='images/DeleteTagsJSON.gif' alt='TagGUI icon' width='512px'>
 
