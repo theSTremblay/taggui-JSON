@@ -9,17 +9,19 @@ from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
                                QVBoxLayout, QWidget)
 
 from auto_captioning.captioning_thread import CaptioningThread
-from auto_captioning.models import MODELS, get_model_type
+from auto_captioning.models.wd_tagger import WdTagger
+from auto_captioning.models_list import MODELS, get_model_class
+from dialogs.caption_multiple_images_dialog import CaptionMultipleImagesDialog
 from models.image_list_model import ImageListModel
 from utils.big_widgets import TallPushButton
-from utils.enums import CaptionDevice, CaptionModelType, CaptionPosition
+from utils.enums import CaptionDevice, CaptionPosition
 from utils.settings import DEFAULT_SETTINGS, get_settings, get_tag_separator
 from utils.settings_widgets import (FocusedScrollSettingsComboBox,
                                     FocusedScrollSettingsDoubleSpinBox,
                                     FocusedScrollSettingsSpinBox,
                                     SettingsBigCheckBox, SettingsLineEdit,
                                     SettingsPlainTextEdit)
-from utils.utils import get_confirmation_dialog_reply, pluralize
+from utils.utils import pluralize
 from widgets.image_list import ImageList
 
 
@@ -59,7 +61,7 @@ class CaptionSettingsForm(QVBoxLayout):
             QFormLayout.RowWrapPolicy.WrapAllRows)
         basic_settings_form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        self.model_combo_box = FocusedScrollSettingsComboBox(key='model')
+        self.model_combo_box = FocusedScrollSettingsComboBox(key='model_id')
         # `setEditable()` must be called before `addItems()` to preserve any
         # custom model that was set.
         self.model_combo_box.setEditable(True)
@@ -260,7 +262,7 @@ class CaptionSettingsForm(QVBoxLayout):
         return model_directory_paths
 
     @Slot(str)
-    def show_settings_for_model(self, model: str):
+    def show_settings_for_model(self, model_id: str):
         wd_tagger_widgets = [self.wd_tagger_settings_form_container]
         non_wd_tagger_widgets = [
             self.prompt_label,
@@ -275,8 +277,7 @@ class CaptionSettingsForm(QVBoxLayout):
             self.toggle_advanced_settings_form_button,
             self.advanced_settings_form_container
         ]
-        is_wd_tagger_model = (get_model_type(model)
-                              == CaptionModelType.WD_TAGGER)
+        is_wd_tagger_model = get_model_class(model_id) == WdTagger
         for widget in wd_tagger_widgets:
             widget.setVisible(is_wd_tagger_model)
         for widget in non_wd_tagger_widgets:
@@ -285,8 +286,9 @@ class CaptionSettingsForm(QVBoxLayout):
 
     @Slot(str)
     def set_load_in_4_bit_visibility(self, device: str):
-        model_type = get_model_type(self.model_combo_box.currentText())
-        if model_type == CaptionModelType.WD_TAGGER:
+        model_id = self.model_combo_box.currentText()
+        is_wd_tagger_model = get_model_class(model_id) == WdTagger
+        if is_wd_tagger_model:
             self.load_in_4_bit_container.setVisible(False)
             return
         is_load_in_4_bit_available = (self.is_bitsandbytes_available
@@ -306,7 +308,7 @@ class CaptionSettingsForm(QVBoxLayout):
 
     def get_caption_settings(self) -> dict:
         return {
-            'model': self.model_combo_box.currentText(),
+            'model_id': self.model_combo_box.currentText(),
             'prompt': self.prompt_text_edit.toPlainText(),
             'caption_start': self.caption_start_line_edit.text(),
             'caption_position': self.caption_position_combo_box.currentText(),
@@ -440,15 +442,34 @@ class AutoCaptioner(QDockWidget):
         self.console_text_edit.appendPlainText(text)
 
     @Slot()
+    def show_alert(self):
+        if self.captioning_thread.is_canceled:
+            return
+        if self.captioning_thread.is_error:
+            icon = QMessageBox.Icon.Critical
+            text = ('An error occurred during captioning. See the '
+                    'Auto-Captioner console for more information.')
+        else:
+            icon = QMessageBox.Icon.Information
+            text = 'Captioning has finished.'
+        alert = QMessageBox()
+        alert.setIcon(icon)
+        alert.setText(text)
+        alert.exec()
+
+    @Slot()
     def generate_captions(self):
         selected_image_indices = self.image_list.get_selected_image_indices()
         selected_image_count = len(selected_image_indices)
+        show_alert_when_finished = False
         if selected_image_count > 1:
-            reply = get_confirmation_dialog_reply(
-                title='Generate Captions',
-                question=f'Caption {selected_image_count} selected images?')
+            confirmation_dialog = CaptionMultipleImagesDialog(
+                selected_image_count)
+            reply = confirmation_dialog.exec()
             if reply != QMessageBox.StandardButton.Yes:
                 return
+            show_alert_when_finished = (confirmation_dialog
+                                        .show_alert_check_box.isChecked())
         self.set_is_captioning(True)
         caption_settings = self.caption_settings_form.get_caption_settings()
         if caption_settings['caption_position'] != CaptionPosition.DO_NOT_ADD:
@@ -483,6 +504,8 @@ class AutoCaptioner(QDockWidget):
         self.captioning_thread.finished.connect(self.progress_bar.hide)
         self.captioning_thread.finished.connect(
             lambda: self.start_cancel_button.setEnabled(True))
+        if show_alert_when_finished:
+            self.captioning_thread.finished.connect(self.show_alert)
         # Redirect `stdout` and `stderr` so that the outputs are displayed in
         # the console text edit.
         sys.stdout = self.captioning_thread
