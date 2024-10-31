@@ -27,7 +27,7 @@ class TagCounterModel(QAbstractListModel):
             return f'{tag} ({count})'
         if role == Qt.ItemDataRole.EditRole:
             return tag
-  
+
     def flags(self, index) -> Qt.ItemFlag:
         """Make the tags editable."""
         return (Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEditable

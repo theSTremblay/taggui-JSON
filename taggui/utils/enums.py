@@ -1,4 +1,4 @@
-from enum import Enum, auto
+from enum import Enum
 
 
 # `StrEnum` is a Python 3.11 feature that can be used here.
@@ -24,19 +24,3 @@ class CaptionPosition(str, Enum):
 class CaptionDevice(str, Enum):
     GPU = 'GPU if available'
     CPU = 'CPU'
-
-
-class CaptionModelType(Enum):
-    COGAGENT = auto()
-    COGVLM = auto()
-    KOSMOS = auto()
-    LLAVA_1_5 = auto()
-    LLAVA_LLAMA_3 = auto()
-    LLAVA_NEXT_34B = auto()
-    LLAVA_NEXT_MISTRAL = auto()
-    LLAVA_NEXT_VICUNA = auto()
-    MOONDREAM1 = auto()
-    MOONDREAM2 = auto()
-    WD_TAGGER = auto()
-    XCOMPOSER2 = auto()
-    OTHER = auto()
