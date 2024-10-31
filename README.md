@@ -1,7 +1,7 @@
 # TagGUI-JSON
 
 - Original work on TagGUI can be found here: https://github.com/jhc13/taggui
-- This code should be referencing v1.25.2 of this release
+- This code should be referencing the latest v1.30.0 release after the latest update - If you see any discrepancies please let me know
 
 ## Updates/Modifications
 - Use the TagGUI GUI to add Json tags to your images
