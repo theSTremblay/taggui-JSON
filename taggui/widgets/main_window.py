@@ -198,29 +198,15 @@ class MainWindow(QMainWindow):
         go_to_next_image_shortcut = QShortcut(QKeySequence('Ctrl+Down'), self)
         go_to_next_image_shortcut.activated.connect(
             self.image_list.go_to_next_image)
+
         jump_to_first_untagged_image_shortcut = QShortcut(
             QKeySequence('Ctrl+J'), self)
         jump_to_first_untagged_image_shortcut.activated.connect(
             self.image_list.jump_to_first_untagged_image)
+
         self.restore()
         self.image_tags_editor.tag_input_box.setFocus()
         self.json_tags_editor.tag_input_box.setFocus()
-
-        # Next directory shortcut
-        next_directory_shortcut = QShortcut(
-            QKeySequence(Qt.KeyboardModifier.ControlModifier |
-                         Qt.KeyboardModifier.AltModifier |
-                         Qt.Key.Key_Right),
-            self)
-        next_directory_shortcut.activated.connect(self.navigate_to_next_directory)
-
-        # Previous directory shortcut
-        prev_directory_shortcut = QShortcut(
-            QKeySequence(Qt.KeyboardModifier.ControlModifier |
-                         Qt.KeyboardModifier.AltModifier |
-                         Qt.Key.Key_Left),
-            self)
-        prev_directory_shortcut.activated.connect(self.navigate_to_previous_directory)
 
     def closeEvent(self, event: QCloseEvent):
         """Save the window geometry and state before closing."""
@@ -355,6 +341,10 @@ class MainWindow(QMainWindow):
         self.reload_directory_action.setShortcut(QKeySequence('Ctrl+Shift+L'))
         self.reload_directory_action.triggered.connect(self.reload_directory)
         file_menu.addAction(self.reload_directory_action)
+
+
+
+
         settings_action = QAction('Settings...', parent=self)
         settings_action.setShortcut(QKeySequence('Ctrl+Alt+S'))
         settings_action.triggered.connect(self.show_settings_dialog)
@@ -363,6 +353,20 @@ class MainWindow(QMainWindow):
         exit_action.setShortcut(QKeySequence('Ctrl+W'))
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
+
+        next_dir_action = QAction('Next Directory', parent=self)
+        next_dir_action.setShortcut(QKeySequence(Qt.KeyboardModifier.ControlModifier |
+                                                 Qt.KeyboardModifier.AltModifier |
+                                                 Qt.Key.Key_Right))
+        next_dir_action.triggered.connect(self.navigate_to_next_directory)
+        file_menu.addAction(next_dir_action)
+
+        prev_dir_action = QAction('Previous Directory', parent=self)
+        prev_dir_action.setShortcut(QKeySequence(Qt.KeyboardModifier.ControlModifier |
+                                                 Qt.KeyboardModifier.AltModifier |
+                                                 Qt.Key.Key_Left))
+        prev_dir_action.triggered.connect(self.navigate_to_previous_directory)
+        file_menu.addAction(prev_dir_action)
 
         edit_menu = menu_bar.addMenu('Edit')
         self.undo_action.setShortcut(QKeySequence('Ctrl+Z'))
@@ -396,6 +400,7 @@ class MainWindow(QMainWindow):
             self.remove_empty_tags)
         edit_menu.addAction(remove_empty_tags_action)
 
+
         # Add new action for JSON Tags editor
         self.toggle_json_tags_editor_action = QAction('JSON Tags', parent=self)
 
@@ -427,16 +432,7 @@ class MainWindow(QMainWindow):
             lambda: QDesktopServices.openUrl(QUrl(GITHUB_REPOSITORY_URL)))
         help_menu.addAction(open_github_repository_action)
 
-        # Add these actions to the file_menu in create_menus method
-        next_directory_action = QAction('Next Directory', parent=self)
-        next_directory_action.setShortcut(QKeySequence('Ctrl+Alt+Right'))
-        next_directory_action.triggered.connect(self.navigate_to_next_directory)
-        file_menu.addAction(next_directory_action)
 
-        prev_directory_action = QAction('Previous Directory', parent=self)
-        prev_directory_action.setShortcut(QKeySequence('Ctrl+Alt+Left'))
-        prev_directory_action.triggered.connect(self.navigate_to_previous_directory)
-        file_menu.addAction(prev_directory_action)
 
 
     @Slot()
@@ -837,25 +833,60 @@ class MainWindow(QMainWindow):
                     Path(self.settings.value('directory_path', type=str)),
                     select_index=image_index)
 
+    # Add these methods to the MainWindow class
     def get_sibling_directories(self, current_dir: Path) -> list[Path]:
-        """
-        Get a sorted list of sibling directories (directories at the same level).
-
-        Args:
-            current_dir (Path): Current directory path
-
-        Returns:
-            list[Path]: Sorted list of sibling directory paths
-        """
+        """Get a sorted list of sibling directories (directories at the same level)."""
+        print(f"Getting siblings for: {current_dir}")  # Debug print
         if not current_dir or not current_dir.parent.exists():
             return []
 
-        # Get all siblings that are directories
         siblings = [d for d in current_dir.parent.iterdir()
                     if d.is_dir() and not d.name.startswith('.')]
-
-        # Sort alphabetically
         return sorted(siblings)
+
+    @Slot()
+    def navigate_to_next_directory(self):
+        """Navigate to the next sibling directory."""
+        print("Navigate to next directory triggered")  # Debug print
+        if not self.settings.contains('directory_path'):
+            return
+
+        current_dir = Path(self.settings.value('directory_path'))
+        siblings = self.get_sibling_directories(current_dir)
+
+        if not siblings:
+            return
+
+        try:
+            current_index = siblings.index(current_dir)
+            next_index = (current_index + 1) % len(siblings)
+            next_dir = siblings[next_index]
+            if next_dir.exists():
+                self.load_directory(next_dir)
+        except ValueError:
+            return
+
+    @Slot()
+    def navigate_to_previous_directory(self):
+        """Navigate to the previous sibling directory."""
+        print("Navigate to previous directory triggered")  # Debug print
+        if not self.settings.contains('directory_path'):
+            return
+
+        current_dir = Path(self.settings.value('directory_path'))
+        siblings = self.get_sibling_directories(current_dir)
+
+        if not siblings:
+            return
+
+        try:
+            current_index = siblings.index(current_dir)
+            prev_index = (current_index - 1) % len(siblings)
+            prev_dir = siblings[prev_index]
+            if prev_dir.exists():
+                self.load_directory(prev_dir)
+        except ValueError:
+            return
 
     def get_next_directory(self, current_dir: Path) -> Optional[Path]:
         """Get the next directory alphabetically."""
@@ -885,27 +916,4 @@ class MainWindow(QMainWindow):
         except ValueError:
             return None
 
-    @Slot()
-    def navigate_to_next_directory(self):
-        """Navigate to the next sibling directory."""
-        if not self.settings.contains('directory_path'):
-            return
-
-        current_dir = Path(self.settings.value('directory_path'))
-        next_dir = self.get_next_directory(current_dir)
-
-        if next_dir and next_dir.exists():
-            self.load_directory(next_dir)
-
-    @Slot()
-    def navigate_to_previous_directory(self):
-        """Navigate to the previous sibling directory."""
-        if not self.settings.contains('directory_path'):
-            return
-
-        current_dir = Path(self.settings.value('directory_path'))
-        prev_dir = self.get_previous_directory(current_dir)
-
-        if prev_dir and prev_dir.exists():
-            self.load_directory(prev_dir)
 
