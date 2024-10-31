@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List  # Add this import
+from typing import List, Optional  # Add this import
 import json  # Add this import
 
 
@@ -206,6 +206,22 @@ class MainWindow(QMainWindow):
         self.image_tags_editor.tag_input_box.setFocus()
         self.json_tags_editor.tag_input_box.setFocus()
 
+        # Next directory shortcut
+        next_directory_shortcut = QShortcut(
+            QKeySequence(Qt.KeyboardModifier.ControlModifier |
+                         Qt.KeyboardModifier.AltModifier |
+                         Qt.Key.Key_Right),
+            self)
+        next_directory_shortcut.activated.connect(self.navigate_to_next_directory)
+
+        # Previous directory shortcut
+        prev_directory_shortcut = QShortcut(
+            QKeySequence(Qt.KeyboardModifier.ControlModifier |
+                         Qt.KeyboardModifier.AltModifier |
+                         Qt.Key.Key_Left),
+            self)
+        prev_directory_shortcut.activated.connect(self.navigate_to_previous_directory)
+
     def closeEvent(self, event: QCloseEvent):
         """Save the window geometry and state before closing."""
         self.settings.setValue('geometry', self.saveGeometry())
@@ -410,6 +426,18 @@ class MainWindow(QMainWindow):
         open_github_repository_action.triggered.connect(
             lambda: QDesktopServices.openUrl(QUrl(GITHUB_REPOSITORY_URL)))
         help_menu.addAction(open_github_repository_action)
+
+        # Add these actions to the file_menu in create_menus method
+        next_directory_action = QAction('Next Directory', parent=self)
+        next_directory_action.setShortcut(QKeySequence('Ctrl+Alt+Right'))
+        next_directory_action.triggered.connect(self.navigate_to_next_directory)
+        file_menu.addAction(next_directory_action)
+
+        prev_directory_action = QAction('Previous Directory', parent=self)
+        prev_directory_action.setShortcut(QKeySequence('Ctrl+Alt+Left'))
+        prev_directory_action.triggered.connect(self.navigate_to_previous_directory)
+        file_menu.addAction(prev_directory_action)
+
 
     @Slot()
     def update_undo_and_redo_actions(self):
@@ -808,3 +836,76 @@ class MainWindow(QMainWindow):
                 self.load_directory(
                     Path(self.settings.value('directory_path', type=str)),
                     select_index=image_index)
+
+    def get_sibling_directories(self, current_dir: Path) -> list[Path]:
+        """
+        Get a sorted list of sibling directories (directories at the same level).
+
+        Args:
+            current_dir (Path): Current directory path
+
+        Returns:
+            list[Path]: Sorted list of sibling directory paths
+        """
+        if not current_dir or not current_dir.parent.exists():
+            return []
+
+        # Get all siblings that are directories
+        siblings = [d for d in current_dir.parent.iterdir()
+                    if d.is_dir() and not d.name.startswith('.')]
+
+        # Sort alphabetically
+        return sorted(siblings)
+
+    def get_next_directory(self, current_dir: Path) -> Optional[Path]:
+        """Get the next directory alphabetically."""
+        siblings = self.get_sibling_directories(current_dir)
+        if not siblings:
+            return None
+
+        try:
+            current_index = siblings.index(current_dir)
+            # Get next directory, wrap around to first if at end
+            next_index = (current_index + 1) % len(siblings)
+            return siblings[next_index]
+        except ValueError:
+            return None
+
+    def get_previous_directory(self, current_dir: Path) -> Optional[Path]:
+        """Get the previous directory alphabetically."""
+        siblings = self.get_sibling_directories(current_dir)
+        if not siblings:
+            return None
+
+        try:
+            current_index = siblings.index(current_dir)
+            # Get previous directory, wrap around to last if at start
+            prev_index = (current_index - 1) % len(siblings)
+            return siblings[prev_index]
+        except ValueError:
+            return None
+
+    @Slot()
+    def navigate_to_next_directory(self):
+        """Navigate to the next sibling directory."""
+        if not self.settings.contains('directory_path'):
+            return
+
+        current_dir = Path(self.settings.value('directory_path'))
+        next_dir = self.get_next_directory(current_dir)
+
+        if next_dir and next_dir.exists():
+            self.load_directory(next_dir)
+
+    @Slot()
+    def navigate_to_previous_directory(self):
+        """Navigate to the previous sibling directory."""
+        if not self.settings.contains('directory_path'):
+            return
+
+        current_dir = Path(self.settings.value('directory_path'))
+        prev_dir = self.get_previous_directory(current_dir)
+
+        if prev_dir and prev_dir.exists():
+            self.load_directory(prev_dir)
+
