@@ -66,6 +66,7 @@ class MainWindow(QMainWindow):
         # everything has the correct font size.
         self.set_font_size()
         self.image_viewer = ImageViewer(self.proxy_image_list_model)
+
         self.create_central_widget()
         self.image_list = ImageList(self.proxy_image_list_model,
                                     tag_separator, image_list_image_width)
@@ -400,6 +401,13 @@ class MainWindow(QMainWindow):
             self.remove_empty_tags)
         edit_menu.addAction(remove_empty_tags_action)
 
+        # Add Clipping submenu
+        clipping_menu = edit_menu.addMenu('Clipping')
+        self.start_clipping_action = QAction('Start Clipping Mode', parent=self)
+        self.start_clipping_action.setShortcut(QKeySequence('Ctrl+Shift+X'))  # Changed from C to X to avoid conflicts
+        self.start_clipping_action.setCheckable(True)
+        self.start_clipping_action.triggered.connect(self.toggle_clipping_mode)
+        clipping_menu.addAction(self.start_clipping_action)
 
         # Add new action for JSON Tags editor
         self.toggle_json_tags_editor_action = QAction('JSON Tags', parent=self)
@@ -915,5 +923,15 @@ class MainWindow(QMainWindow):
             return siblings[prev_index]
         except ValueError:
             return None
+
+    # Add new method to MainWindow
+    def toggle_clipping_mode(self, checked):
+        """Toggle the clipping mode on/off"""
+        if checked:
+            self.image_viewer.enterClippingMode()
+            self.statusBar().showMessage('Clipping Mode: Click and drag to create clips')
+        else:
+            self.image_viewer.exitClippingMode()
+            self.statusBar().clearMessage()
 
 
