@@ -2,8 +2,8 @@ from pathlib import Path
 
 from PySide6.QtCore import QModelIndex, QSize, Qt, Slot
 from PySide6.QtGui import QImageReader, QPixmap, QResizeEvent
-from PySide6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
-
+from PySide6.QtWidgets import (QLabel, QSizePolicy, QVBoxLayout, QWidget,
+                              QRubberBand, QMessageBox, QDialog)
 from models.proxy_image_list_model import ProxyImageListModel
 from utils.image import Image
 
@@ -12,6 +12,8 @@ from PySide6.QtGui import QPainter, QPen, QColor
 from PySide6.QtWidgets import QRubberBand, QMessageBox
 from PIL import Image as PILImage
 import os
+from .clipping_tag_dialog import ClippingTagDialog  # Add this import
+import json
 
 
 class ImageLabel(QLabel):
@@ -58,8 +60,8 @@ class ImageLabel(QLabel):
             return QRect()
 
         # Calculate the actual rectangle where the image is displayed
-        pw = self.pixmap().width()
-        ph = self.pixmap().height()
+        pw = self.pixmap().width() / self.devicePixelRatio()
+        ph = self.pixmap().height() / self.devicePixelRatio()
         w = self.width()
         h = self.height()
 
@@ -67,6 +69,10 @@ class ImageLabel(QLabel):
             # Width limited
             scaled_h = int(ph * w / pw)
             return QRect(0, (h - scaled_h) // 2, w, scaled_h)
+        else:
+            # Height limited
+            scaled_w = int(pw * h / ph)
+            return QRect((w - scaled_w) // 2, 0, scaled_w, h)
 
     # Add new clipping-related methods
     def enterClippingMode(self):
@@ -111,17 +117,24 @@ class ImageLabel(QLabel):
 
         # Convert the selection rectangle to image coordinates
         if self.current_image_rect:
+            # Get original image dimensions
+            image_reader = QImageReader(str(self.image_path))
+            original_width = image_reader.size().width()
+            original_height = image_reader.size().height()
+
             # Calculate scaling factors
-            scale_x = self.pixmap().width() / self.current_image_rect.width()
-            scale_y = self.pixmap().height() / self.current_image_rect.height()
+            display_rect = self.current_image_rect
+            scale_x = original_width / display_rect.width()
+            scale_y = original_height / display_rect.height()
 
             # Transform coordinates to image space
-            image_clip_rect = QRect(
-                int((clip_rect.x() - self.current_image_rect.x()) * scale_x),
-                int((clip_rect.y() - self.current_image_rect.y()) * scale_y),
-                int(clip_rect.width() * scale_x),
-                int(clip_rect.height() * scale_y)
-            )
+            image_x = int((clip_rect.x() - display_rect.x()) * scale_x)
+            image_y = int((clip_rect.y() - display_rect.y()) * scale_y)
+            image_width = int(clip_rect.width() * scale_x)
+            image_height = int(clip_rect.height() * scale_y)
+
+            # Create the final rectangle in image coordinates
+            image_clip_rect = QRect(image_x, image_y, image_width, image_height)
 
             self.clip_created.emit(image_clip_rect)
 
@@ -129,18 +142,20 @@ class ImageLabel(QLabel):
 
 
 class ImageViewer(QWidget):
-    def __init__(self, proxy_image_list_model: ProxyImageListModel):
+    def __init__(self, proxy_image_list_model):
         super().__init__()
         self.proxy_image_list_model = proxy_image_list_model
         self.image_label = ImageLabel()
         QVBoxLayout(self).addWidget(self.image_label)
+
         # Connect the clip_created signal
         self.image_label.clip_created.connect(self.handle_clip_created)
         self.current_image_path = None
 
     @Slot()
-    def load_image(self, proxy_image_index: QModelIndex):
-        image: Image = self.proxy_image_list_model.data(
+    def load_image(self, proxy_image_index):
+        """Load an image from the model"""
+        image = self.proxy_image_list_model.data(
             proxy_image_index, Qt.ItemDataRole.UserRole)
         self.current_image_path = image.path
         self.image_label.load_image(image.path)
@@ -162,12 +177,12 @@ class ImageViewer(QWidget):
         try:
             # Open the original image with PIL
             with PILImage.open(str(self.current_image_path)) as img:
-                # Crop the image
+                # Crop the image using the corrected coordinates
                 cropped = img.crop((
-                    clip_rect.x(),
-                    clip_rect.y(),
-                    clip_rect.x() + clip_rect.width(),
-                    clip_rect.y() + clip_rect.height()
+                    max(0, clip_rect.x()),
+                    max(0, clip_rect.y()),
+                    min(img.width, clip_rect.x() + clip_rect.width()),
+                    min(img.height, clip_rect.y() + clip_rect.height())
                 ))
 
                 # Generate the new filename
@@ -184,17 +199,43 @@ class ImageViewer(QWidget):
 
                 # Save the cropped image
                 cropped.save(new_path)
+                new_path = Path(new_path)
 
-                # Copy associated txt and json files
-                self._copy_associated_files(str(self.current_image_path),
-                                            f"{base_path}_clip{clip_num}")
+                # Show the tagging dialog
+                dialog = ClippingTagDialog(new_path, self)
+                dialog.tags_confirmed.connect(self.save_clip_tags)
 
-                QMessageBox.information(self, "Success",
-                                        f"Clip saved as: {os.path.basename(new_path)}")
+                if dialog.exec() == QDialog.DialogCode.Rejected:
+                    # If dialog was canceled, delete the saved clip
+                    try:
+                        os.remove(new_path)
+                    except OSError:
+                        pass
+                    return
 
         except Exception as e:
             QMessageBox.critical(self, "Error",
                                  f"Failed to save clip: {str(e)}")
+
+    def save_clip_tags(self, tags: dict, clip_path: Path):
+        """Save the JSON tags for the clip"""
+        try:
+            # Save JSON tags only
+            json_path = clip_path.with_suffix('.json')
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(tags, f, indent=2, ensure_ascii=False)
+
+            QMessageBox.information(self, "Success",
+                                    f"Clip saved as: {clip_path.name}")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error",
+                                 f"Failed to save clip tags: {str(e)}")
+            # Print full traceback for debugging
+            import traceback
+            traceback.print_exc()
+
+
 
     def _copy_associated_files(self, original_path, new_base_path):
         """Copy associated txt and json files for the clip"""
