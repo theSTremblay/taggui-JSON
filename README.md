@@ -11,6 +11,7 @@
 - My changes can mostly be found in the new json_tags_editor files and main_window to support the changes in json_tags_editor
 - (*Newest*) Added ability to Crop Images andget a sub-image and tag that
 - (*Newest*) Added FLAN Classifier to Auto-sort Tag into a given JSON (built-in huggingface download if .env environment key set as in .env.example
+- (*Newest*) Test if GPU is configurable for FLAN classifier
 
 ## Examples
 
