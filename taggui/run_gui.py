@@ -10,6 +10,9 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from utils.settings import get_settings
 from widgets.main_window import MainWindow
+from dotenv import load_dotenv
+from setup_llm import setup_llm  # Add this import
+
 
 
 def suppress_warnings():
@@ -30,6 +33,17 @@ def suppress_warnings():
 
 
 def run_gui():
+    # Load environment variables
+    load_dotenv()
+    # Initialize the LLM
+    tag_sorter = None  # Initialize as None in case setup fails
+    try:
+        tag_sorter = setup_llm()
+        print("LLM initialized successfully")
+    except Exception as e:
+        print(f"Failed to initialize LLM: {e}")
+        # Continue without LLM functionality
+
     app = QApplication([])
     # The application name is shown in the taskbar.
     app.setApplicationName('TagGUI')
@@ -38,7 +52,7 @@ def run_gui():
     app.setStyle('Fusion')
     # Disable the allocation limit to allow loading large images.
     QImageReader.setAllocationLimit(0)
-    main_window = MainWindow(app)
+    main_window = MainWindow(app, tag_sorter=tag_sorter)
     main_window.show()
     sys.exit(app.exec())
 
