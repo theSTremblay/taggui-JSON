@@ -142,9 +142,10 @@ class ImageLabel(QLabel):
 
 
 class ImageViewer(QWidget):
-    def __init__(self, proxy_image_list_model):
+    def __init__(self, proxy_image_list_model, tag_sorter=None):
         super().__init__()
         self.proxy_image_list_model = proxy_image_list_model
+        self.tag_sorter = tag_sorter
         self.image_label = ImageLabel()
         QVBoxLayout(self).addWidget(self.image_label)
 
@@ -202,7 +203,7 @@ class ImageViewer(QWidget):
                 new_path = Path(new_path)
 
                 # Show the tagging dialog
-                dialog = ClippingTagDialog(new_path, self)
+                dialog = ClippingTagDialog(new_path, self, tag_sorter=self.tag_sorter)  # Pass tag_sorter to dialog
                 dialog.tags_confirmed.connect(self.save_clip_tags)
 
                 if dialog.exec() == QDialog.DialogCode.Rejected:
@@ -231,7 +232,6 @@ class ImageViewer(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error",
                                  f"Failed to save clip tags: {str(e)}")
-            # Print full traceback for debugging
             import traceback
             traceback.print_exc()
 

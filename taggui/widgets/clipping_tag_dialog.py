@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-                               QLineEdit, QPushButton, QWidget)
+                               QMessageBox, QLineEdit, QPushButton, QWidget)
 from PySide6.QtGui import QPixmap, QImage
 from pathlib import Path
 
@@ -10,9 +10,10 @@ import json
 class ClippingTagDialog(QDialog):
     tags_confirmed = Signal(dict, Path)  # Signal emitted when tags are confirmed
 
-    def __init__(self, clipping_path: Path, parent=None):
+    def __init__(self, clipping_path: Path, parent=None, tag_sorter=None):
         super().__init__(parent)
         self.clipping_path = clipping_path
+        self.tag_sorter = tag_sorter  # Store tag sorter
         self.setWindowTitle("Tag Clipping")
         self.setModal(True)
 
@@ -37,6 +38,19 @@ class ClippingTagDialog(QDialog):
         self.preview_label.setPixmap(scaled_pixmap)
         layout.addWidget(self.preview_label)
 
+        # Bulk input section with auto-sort
+        if self.tag_sorter:
+            bulk_layout = QHBoxLayout()
+            self.bulk_input = QLineEdit()
+            self.bulk_input.setPlaceholderText("Enter multiple tags separated by commas")
+            self.sort_button = QPushButton("Auto-Sort Tags")
+            self.loading_label = QLabel("Processing...")
+            self.loading_label.hide()
+            bulk_layout.addWidget(self.bulk_input)
+            bulk_layout.addWidget(self.sort_button)
+            layout.addLayout(bulk_layout)
+            layout.addWidget(self.loading_label)
+
         # Input section
         inputs_widget = QWidget()
         inputs_layout = QVBoxLayout(inputs_widget)
@@ -45,7 +59,6 @@ class ClippingTagDialog(QDialog):
         char_layout = QHBoxLayout()
         char_label = QLabel("Characters:")
         char_label.setMinimumWidth(100)
-        # Changed from char_input to character_input to match getattr call
         self.character_input = QLineEdit()
         self.character_input.setPlaceholderText("Add character")
         char_layout.addWidget(char_label)
@@ -99,6 +112,10 @@ class ClippingTagDialog(QDialog):
         self.setting_input.returnPressed.connect(lambda: self.add_tag("settings"))
         self.action_input.returnPressed.connect(lambda: self.add_tag("actions"))
 
+        if hasattr(self, 'sort_button'):
+            self.sort_button.clicked.connect(self.auto_sort_tags)
+            self.bulk_input.returnPressed.connect(self.auto_sort_tags)
+
         self.save_button.clicked.connect(self.handle_save)
         self.cancel_button.clicked.connect(self.reject)
 
@@ -108,9 +125,11 @@ class ClippingTagDialog(QDialog):
             input_field = self.character_input
         elif category == "settings":
             input_field = self.setting_input
-        else:  # actions
+        elif category == "actions":
             input_field = self.action_input
-
+        else:
+            print(f"Warning: Unknown category {category}")
+            return
         tag = input_field.text().strip()
 
         if tag:
@@ -121,10 +140,53 @@ class ClippingTagDialog(QDialog):
             else:
                 input_field.clear()
 
+    def auto_sort_tags(self):
+        """Use the LLM to automatically sort tags"""
+        if not self.tag_sorter:
+            return
+
+        text = self.bulk_input.text().strip()
+        if not text:
+            return
+
+        # Show loading state
+        self.loading_label.show()
+        self.sort_button.setEnabled(False)
+        self.bulk_input.setEnabled(False)
+
+        try:
+            # Split the input into individual tags
+            tags = [tag.strip() for tag in text.split(',') if tag.strip()]
+
+            # Use the tag sorter to categorize the tags
+            categorized_tags = self.tag_sorter.sort_tags(tags)
+
+            # Update the current tags
+            for category, new_tags in categorized_tags.items():
+                # Add new tags while avoiding duplicates
+                self.current_tags[category].extend(
+                    tag for tag in new_tags
+                    if tag not in self.current_tags[category]
+                )
+
+            # Clear the input and update display
+            self.bulk_input.clear()
+            self.update_tag_display()
+
+        except Exception as e:
+            QMessageBox.warning(self, "Sorting Error", f"Failed to sort tags: {str(e)}")
+
+        finally:
+            # Reset UI state
+            self.loading_label.hide()
+            self.sort_button.setEnabled(True)
+            self.bulk_input.setEnabled(True)
+
     def update_tag_display(self):
-        """Update the display of current tags"""
+        """Update the tag display with clear category separation"""
         display_text = []
 
+        # Add each category with its tags
         if self.current_tags["characters"]:
             display_text.append("Characters: " + ", ".join(self.current_tags["characters"]))
         if self.current_tags["settings"]:
@@ -137,9 +199,12 @@ class ClippingTagDialog(QDialog):
         else:
             self.tag_display.setText("No tags added yet")
 
+        print("\nUpdated display text:")
+        print("\n".join(display_text))
+
     def handle_save(self):
         """Handle saving of tags"""
-        # Also check if there's any unsaved input in the text fields
+        # Check for any unsaved input in text fields
         self.check_unsaved_inputs()
 
         # Format tags before emitting
@@ -168,3 +233,94 @@ class ClippingTagDialog(QDialog):
             # Don't let the dialog close on Enter
             return
         super().keyPressEvent(event)
+
+    def sort_bulk_tags(self):
+        """Handle sorting of bulk tags with improved debugging"""
+        if not self.tag_sorter:
+            return
+
+        text = self.bulk_input.text().strip()
+        if not text:
+            return
+
+        # Process the tags
+        tags = [t.strip() for t in text.split(',') if t.strip()]
+        if not tags:
+            return
+
+        print(f"\nProcessing input tags: {tags}")
+        self.sort_button.setEnabled(False)
+        QApplication.processEvents()
+
+        try:
+            # Sort tags
+            result = self.tag_sorter.sort_tags(tags)
+
+            # Show what we got back
+            print("\nReceived classifications:")
+            for category, category_tags in result.items():
+                print(f"{category}: {category_tags}")
+
+            # Update tags
+            modified = False
+            for category, new_tags in result.items():
+                if new_tags:
+                    print(f"\nAdding to {category}: {new_tags}")
+                    self.current_tags[category].extend(new_tags)
+                    self.current_tags[category] = list(dict.fromkeys(self.current_tags[category]))
+                    modified = True
+
+            if modified:
+                self.update_tag_display()
+                print("\nFinal tag state:")
+                for category, tags in self.current_tags.items():
+                    print(f"{category}: {tags}")
+
+        except Exception as e:
+            print(f"Error in sort_bulk_tags: {str(e)}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            self.sort_button.setEnabled(True)
+
+    def handle_sorted_tags(self, result: dict):
+        """Handle the sorted tags result with better debugging"""
+        try:
+            print("\nReceived sorted tags:")
+            print(json.dumps(result, indent=2))
+
+            self.sort_button.setEnabled(True)
+
+            # Validate the result structure
+            if not isinstance(result, dict):
+                print(f"Error: Expected dict, got {type(result)}")
+                return
+
+            expected_keys = {"characters", "settings", "actions"}
+            if not all(key in result for key in expected_keys):
+                print(f"Error: Missing expected keys. Got {result.keys()}")
+                return
+
+            # Merge with existing tags
+            for category, tags in result.items():
+                if not isinstance(tags, list):
+                    print(f"Error: Expected list for {category}, got {type(tags)}")
+                    continue
+
+                self.current_tags[category].extend(tags)
+                # Remove duplicates while preserving order
+                self.current_tags[category] = list(dict.fromkeys(self.current_tags[category]))
+
+            # Clear the input and update display
+            self.bulk_input.clear()
+            self.update_tag_display()
+
+        except Exception as e:
+            print(f"Error handling sorted tags: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    def handle_sorting_error(self, error_msg: str):
+        """Handle sorting errors"""
+        self.sort_button.setEnabled(True)
+        QMessageBox.warning(self, "Sorting Error", error_msg)
