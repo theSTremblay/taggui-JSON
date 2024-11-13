@@ -37,7 +37,7 @@
 
 ## Roadmap
 - Customize Json Key names for more descriptions than "Character", "Action", and "Setting" 
-- ~~ Working on grabbing crops of subimages found in the original image for less noisy tags ~~
+- ~~Working on grabbing crops of subimages found in the original image for less noisy tags~~
 - When we save the clipped images tags make the sidebar auto-reload
 
 ## Fork Information
