@@ -7,8 +7,10 @@
 - Use the TagGUI GUI to add Json tags to your images
 - Json tags can be deleted with one-click
 - JSON Editor can be modified/removed at your convenience in a similar flow to the original Image tags editor on TagGUI
-- (*Newest*) Switch between directories with a new Shortcut Ctrl + Alt + Left/Right
+-  Switch between directories with a new Shortcut Ctrl + Alt + Left/Right
 - My changes can mostly be found in the new json_tags_editor files and main_window to support the changes in json_tags_editor
+- (*Newest*) Added ability to Crop Images andget a sub-image and tag that
+- (*Newest*) Added FLAN Classifier to Auto-sort Tag into a given JSON (built-in huggingface download if .env environment key set as in .env.example
 
 ## Examples
 
@@ -27,6 +29,10 @@
 #### Switch Directories
 
 <img src='images/MoveDirectories3.gif' alt='TagGUI icon' width='512px'>
+
+#### (New) Added Image Cropping and FLAN JSON Tag Classifier 
+
+<img src='images/AutoTagClassifier.gif' alt='TagGUI icon' width='512px'>
 
 ## Roadmap
 - Customize Json Key names for more descriptions than "Character", "Action", and "Setting"
