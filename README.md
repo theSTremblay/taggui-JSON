@@ -36,8 +36,9 @@
 <img src='images/AutoTagClassifier.gif' alt='TagGUI icon' width='512px'>
 
 ## Roadmap
-- Customize Json Key names for more descriptions than "Character", "Action", and "Setting"
-- Working on grabbing crops of subimages found in the original image for less noisy tags
+- Customize Json Key names for more descriptions than "Character", "Action", and "Setting" 
+- ~~ Working on grabbing crops of subimages found in the original image for less noisy tags ~~
+- When we save the clipped images tags make the sidebar auto-reload
 
 ## Fork Information
 This is a fork of TagGUI that adds JSON tagging capabilities. For the original project, please visit [TagGUI](https://github.com/jhc13/taggui).
